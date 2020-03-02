@@ -1,28 +1,30 @@
-/*select vendor_number,count(vendor_number)
-from
-(*/
+
 with monthly as
 (
-SELECT 
+select f.snapshot_date
+,forecast_item
+,forecast_area
+,vendor_number
+,Commercial_Forecast
+from
+
+(SELECT 
 forecast_snapshot_date AS snapshot_date,
 forecast_item,
-v.vendor_number,
+--v.vendor_number,
 forecast_area,
 --SUM(forecast_demand_qty+forecast_ex_qty) AS Actuals,
-SUM(forecast_dailyfrc_qty)AS S099_Forecast,
+--SUM(forecast_dailyfrc_qty)AS S099_Forecast,
 SUM(forecast_coitardy_coqty)AS Commercial_Forecast
 FROM chewybi.forecast_demand_master_report f
-join chewybi.item_location_vendor v on f.forecast_item=v.product_part_number and f.forecast_area=v.location_code
+
 WHERE 
 f.forecast_snapshot_date=current_date
-and v.snapshot_date=current_date
+--and v.snapshot_date=current_date
 AND forecast_monthly_date BETWEEN current_date AND current_date+90
-and forecast_area in ('AVP1','CFC1','EFC3')
-and v.primary_vendor_flag='true'
-and v.vendor_number is not null
-and v.vendor_number in ('1778','2012')
- 
-GROUP BY 1,2,3,4
+GROUP BY 1,2,3)f
+left join chewybi.item_location_vendor v on (f.forecast_item=v.product_part_number and f.forecast_area=v.location_code and v.snapshot_date=f.snapshot_date)
+where 1=1
 ) 
 
 ,vendor_min as (
@@ -30,7 +32,6 @@ select   v.snapshot_date
 ,v.location_code
 , v.vendor_number
 ,v.vendor_name
---,v.vendor_delivery_type
 ,case when v.vendor_number in ('B000016','P000627','P000588','P000648','P000723','B000138','B000139','P000720','P000737','P000703','P000645','P000683','P000738','5086') then 'LTL (Less Truck Load)'
       when v.vendor_number in ('9080','2822','B000087','B000088','2845','1277','1196','1195','B000128') then 'LTL (Less Truck Load)'
       when v.vendor_number in ('P000647','P000612','P000675','P000696','P000701','P000716','P000636','B000136','P000712','B000137','P000643','P000649','P000728','P000708','P000717','P000667') then 'Small Parcel'
@@ -58,7 +59,7 @@ select   v.snapshot_date
         else 123456789 end as min_planning_amount
         from chewybi.vendor_location v
         where v.snapshot_date = current_date
-        and     v.location_code in ('AVP1','CFC1','EFC3')
+        --and     v.location_code in ('AVP1','CFC1','EFC3')
         and v.vendor_Status = 'Enabled'
         --and v.vendor_automatic_proposal_approval = false
         --and v.vendor_approval = 'Manual'
@@ -87,11 +88,15 @@ select products.product_part_number
 ,products.product_packaged_height
 ,products.product_packaged_length
 ,products.product_packaged_width
+,products.product_unit_of_measure
+,products.product_weight
+,products.product_weight_uom
 ,greatest(products.product_packaged_height/40,products.product_packaged_length/59,products.product_packaged_width/48) as eq_pallets
 
 from chewybi.products
 where products.product_setup_completed_flag is true
 and products.product_discontinued_flag is false
+
 )
 
 ,week_avg as (                    
@@ -105,7 +110,8 @@ select distinct f.forecast_item
 ,v.vendor_shipment_method_code
 ,v.vendor_distribution_method
 ,v.vendor_lead_time_business_days
-,case when v.vendor_delivery_type = 'Shipping Container' and v.min_planning_amount < 4e6 then 4.15e6
+,p.product_weight
+,p.product_weight_uom,case when v.vendor_delivery_type = 'Shipping Container' and v.min_planning_amount < 4e6 then 4.15e6
       when v.vendor_delivery_type = 'FTL (Full Truck Load)' and v.vendor_min_type = 'weight' and v.min_planning_amount < 38000 then 42000   
       else v.min_planning_amount end as MOQ
 ,case when v.vendor_min_type='cube' then m.UNITCUBE
@@ -118,7 +124,7 @@ select distinct f.forecast_item
       else 0 end as UNITWEIGHT  
 ,case when v.vendor_min_type = 'case' then ilv.vendor_uom_qty
       else 0 end as vendor_uom_qty  
-,f.S099_Forecast
+--,f.S099_Forecast
 ,f.Commercial_Forecast
 ,f.Commercial_Forecast/12.86 as weekly_avg_forecast_in_QTY
 ,(f.Commercial_Forecast/12.86)*m.UNITWEIGHT as weekly_fcst_wt
@@ -142,7 +148,7 @@ join chewy_prod_740.C_MASTERFILE m on f.forecast_item = m.ITEM
 join pallets p on f.forecast_item=p.product_part_number 
 )
 
-,dummy as (
+--,dummy as (
 select w.vendor_number
 ,w.vendor_name
 ,w.forecast_area
@@ -164,9 +170,12 @@ select w.vendor_number
      when sum(w.weekly_avg_forecast)/w.MOQ >= 5 then 5
      else floor(sum(w.weekly_avg_forecast)/w.MOQ) end as num_orders_per_week
 from week_avg w
+where w.vendor_number in ('2833')
 group by        1,2,3,4,5,6,7,8,9,10
-)
+ 
+--)
 
+/*
 --,final as
 --(
 select d.vendor_number
@@ -190,8 +199,8 @@ select d.vendor_number
       else (d.Truckloads_pl_per_week/d.num_orders_per_week) end as Truckloads_pl_per_order 
                  
  from dummy d
- where d.vendor_number in ('2012','1778')
- --)   */             
+ where d.vendor_number in ('2833')
+ )   */             
 --where
 --ilv.vendor_uom_qty is not null
 /*
