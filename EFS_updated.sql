@@ -32,11 +32,7 @@ select   v.snapshot_date
 ,v.location_code
 , v.vendor_number
 ,v.vendor_name
-,case when v.vendor_number in ('B000016','P000627','P000588','P000648','P000723','B000138','B000139','P000720','P000737','P000703','P000645','P000683','P000738','5086') then 'LTL (Less Truck Load)'
-      when v.vendor_number in ('9080','2822','B000087','B000088','2845','1277','1196','1195','B000128') then 'LTL (Less Truck Load)'
-      when v.vendor_number in ('P000647','P000612','P000675','P000696','P000701','P000716','P000636','B000136','P000712','B000137','P000643','P000649','P000728','P000708','P000717','P000667') then 'Small Parcel'
-      when v.vendor_number in ('P000714','P000731','P000732','P000733','P000736','P000750') then 'Shipping Container'
-      else v.vendor_delivery_type end as vendor_delivery_type  
+,v.vendor_delivery_type  
 ,v.vendor_purchaser_code
 ,v.vendor_shipment_method_code
 ,v.vendor_distribution_method
@@ -128,10 +124,7 @@ select distinct f.forecast_item
 ,f.Commercial_Forecast
 ,f.Commercial_Forecast/12.86 as weekly_avg_forecast_in_QTY
 ,(f.Commercial_Forecast/12.86)*m.UNITWEIGHT as weekly_fcst_wt
-/*,case when f.Commercial_Forecast/12 < l.MINRESLOT/2 then 0
-      when f.Commercial_Forecast/12 between l.MINRESLOT/2 and l.MINRESLOT then l.MINRESLOT
-      else f.Commercial_Forecast/12 end as weekly_avg_forecast_in_QTY*/
-, case when v.vendor_min_type = 'cube' then (f.Commercial_Forecast/12.86)*m.UNITCUBE
+,case when v.vendor_min_type = 'cube' then (f.Commercial_Forecast/12.86)*m.UNITCUBE
        when v.vendor_min_type = 'dollar' then (f.Commercial_Forecast/12.86)*m.UNITCOST
        when v.vendor_min_type = 'pallet' then (f.Commercial_Forecast/12.86)/m.PALLETQTY
        when v.vendor_min_type = 'unit' then (f.Commercial_Forecast/12.86)
@@ -173,43 +166,5 @@ from week_avg w
 where w.vendor_number in ('2833')
 group by        1,2,3,4,5,6,7,8,9,10
  
---)
 
-/*
---,final as
---(
-select d.vendor_number
-,d.vendor_name
-,d.forecast_area
-,d.vendor_min_type
-,d.vendor_lead_time_business_days
-,d.vendor_delivery_type
-,d.vendor_purchaser_code
-,d.vendor_shipment_method_code
-,d.vendor_distribution_method
-,d.MOQ
-,d.num_orders_per_week
-,case when d.avg_per_week_in_UOM/d.MOQ <= 1 then 1
-     else (d.avg_per_week_in_UOM/d.num_orders_per_week)/d.MOQ end as MOQs_per_order
-,d.avg_per_week_in_QTY/d.num_orders_per_week as forecast_qty_per_order
-,d.avg_fcst_wt/d.num_orders_per_week as fcst_per_ord_wt
-,case when d.vendor_delivery_type in ('FTL (Full Truck Load)') then ROUND((d.avg_per_week_in_UOM/d.MOQ)/d.num_orders_per_week)
-      else (d.Truckloads_wt_per_week/d.num_orders_per_week) end as Truckloads_wt_per_order 
-,case when d.vendor_delivery_type in ('FTL (Full Truck Load)') then ROUND((d.avg_per_week_in_UOM/d.MOQ)/d.num_orders_per_week)
-      else (d.Truckloads_pl_per_week/d.num_orders_per_week) end as Truckloads_pl_per_order 
-                 
- from dummy d
- where d.vendor_number in ('2833')
- )   */             
---where
---ilv.vendor_uom_qty is not null
-/*
-ilv.product_discontinued_flag = false
---and ilv.product_published_flag = true
-and ilv.primary_vendor_flag = true
-and ilv.product_purchase_source_location is null
---where*/
-/*) a
-group by 1
-having count(forecast_item)>1*/
 
